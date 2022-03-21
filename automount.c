@@ -2,14 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-int length(char * str) {
-    char *t;    
-    for (t = str; *t != '\0'; t++);
-    return t - str;
-}
-
 char* substring(char *str, int a, int b){
-	int l = length(str);
+	int l = strlen(str);
 	if (l<=0 || a > l || b > l || a < 0){
 		return NULL;
 	}
@@ -21,8 +15,9 @@ char* substring(char *str, int a, int b){
 int indexOf(char c, char *str, int start){
 	char * t;
 	int res = -1;
+	int l = strlen(str);
 	if (start >= 0){
-		for (int i = start; i < length(str); ++i){
+		for (int i = start; i < l; ++i){
 			if (str[i]==c){
 				res = i;
 				break;
@@ -32,7 +27,7 @@ int indexOf(char c, char *str, int start){
 	return res;
 }
 
-int anz(char c, char*str){
+int count(char c, char* str){
 	int count = 0;
 	while(*str) 
 		if (*str++ == c) 
@@ -45,7 +40,7 @@ char* getLine(char* str, int n){
 	int b = 0;
 	char* res;
 	
-	if(n < 0 || anz('\n', str) < n){
+	if(n < 0 || count('\n', str) < n){
 		return NULL;
 	}
 	
@@ -58,7 +53,7 @@ char* getLine(char* str, int n){
 	if (indexOf('\n', str, a)!=-1){
 		b = indexOf('\n', str, a);
 	} else {
-		b = length(str);
+		b = strlen(str);
 	}
 	
 	res = substring(str, a, b);
@@ -103,23 +98,21 @@ void mkdir(char* mountpoint){
 	strcpy(cmd, "/bin/mkdir -p ");
 	strcat(cmd, mountpoint);
 
-	/* Open the command for reading. */
 	fp = popen(cmd, "r");
 	if (fp == NULL) {
 		printf("Failed to run command\n" );
 		exit(1);
 	}
 
-	/* Read the output a line at a time - output it. */
 	while (fgets(path, sizeof(path), fp) != NULL) {
 		printf("%s", path);
 	}
 
-	/* close */
 	pclose(fp);
 }
 
-void add(char* server, char* share, char* user, char* pass, char* mountpoint){
+// add smb
+void o1(char* server, char* share, char* user, char* pass, char* mountpoint){
 	char url[324];
 	strcpy(url, "smb://");
 	strcat(url, user);
@@ -136,7 +129,7 @@ void add(char* server, char* share, char* user, char* pass, char* mountpoint){
 	strcat(entry, share);
 	strcat(entry, " ");
 	strcat(entry, mountpoint);
-	strcat(entry, " url automounted,_netdev,url==");
+	strcat(entry, " url nofail,x-systemd.device-timeout=1ms,automounted,_netdev,url==");
 	strcat(entry, url);
 	strcat(entry, " 0 0");
 	
@@ -154,37 +147,6 @@ void add(char* server, char* share, char* user, char* pass, char* mountpoint){
 
 ///
 
-// add smb
-void o1(void){
-	char server[15];
-	char share[100];
-	char user[100];
-	char pass[100];
-	char mountpoint[300];
-	
-	char keep[3] = "no";
-	
-	printf("\nServer (ip): ");
-	scanf("%14s", &server[0]);
-	printf("Share (dir): ");
-	scanf("%99s", &share[0]);
-	printf("Username: ");
-	scanf("%99s", &user[0]);
-	printf("Password: ");
-	scanf("%99s", &pass[0]);
-	printf("Mountpoint (dir): ");
-	scanf("%299s", &mountpoint[0]);
-	
-	printf("\nContinue? (y/n): ");
-	scanf("%2s", &keep[0]);
-	if(keep[0]=='n'){
-		return;
-	}
-	
-	add(server, share, user, pass, mountpoint);
-	
-}
-
 char* parseMountpoint(char* line){
 	char* res;
 	
@@ -197,9 +159,9 @@ char* parseMountpoint(char* line){
 void o2(int n){
 	char* buffer = read("/etc/fstab");
 	char* line;
-	int c = anz('\n', buffer) + 1;
-	int string_size = length(buffer);
-	char* text = (char*) malloc(sizeof(char) * (string_size + 1 - length(getLine(buffer, n-1))) );
+	int c = count('\n', buffer) + 1;
+	int string_size = strlen(buffer);
+	char* text = (char*) malloc(sizeof(char) * (string_size + 1 - strlen(getLine(buffer, n-1))) );
 	
 	
 	for(int i = 0; i < c; ++i){
@@ -211,20 +173,17 @@ void o2(int n){
 	}
 	
 	char *mountpoint = parseMountpoint(line);
-	//printf("Zu löschender Mountpoint: %s",mountpoint);
 	
 	write(text);
 	
 	char cmd1[100];
 	strcpy(cmd1, "diskutil unmount ");
 	strcat(cmd1, mountpoint);
-	//printf("Problem: %s", cmd1);
 	system(cmd1);
 	
 	char cmd2[100];
 	strcpy(cmd2, "rm -r ");
 	strcat(cmd2, mountpoint);
-	//printf("Problem: %s", cmd2);
 	system(cmd2);
 	
 	free(buffer);
@@ -235,7 +194,7 @@ void o2(int n){
 void o3(void){
 	char* buffer = read("/etc/fstab");
 	char* line;
-	int c = anz('\n', buffer) + 1;
+	int c = count('\n', buffer) + 1;
 	
 	for(int i = 0; i < c; ++i){
 		printf("%d) %s\n", i+1 , getLine(buffer, i));
@@ -258,7 +217,34 @@ int main(){
 		scanf("%d", &option);  
 		
 		if (option == 1) {
-			o1();
+			char server[15];
+			char share[100];
+			char user[100];
+			char pass[100];
+			char mountpoint[300];
+	
+			char keep[3] = "no";
+	
+			printf("\nServer (ip): ");
+			scanf("%14s", &server[0]);
+			printf("Share (dir): ");
+			scanf("%99s", &share[0]);
+			printf("Username: ");
+			scanf("%99s", &user[0]);
+			printf("Password: ");
+			scanf("%99s", &pass[0]);
+			printf("Mountpoint (dir): ");
+			scanf("%299s", &mountpoint[0]);
+	
+			printf("\nContinue? (y/n): ");
+			scanf("%2s", &keep[0]);
+			
+			if(keep[0]=='n'){
+				continue;
+			}
+			
+			o1(server, share, user, pass, mountpoint);
+			
 		} else if (option == 2) {
 			o3();
 			printf("\nWhich one should be removed? ");
